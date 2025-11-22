@@ -3,21 +3,14 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { HistoricalEvent, CATEGORY_COLORS, CATEGORY_LABELS } from "@/types";
 
 interface WorldMapProps {
-  selectedYear: number;
-  events: Array<{
-    id: string;
-    year: number;
-    title: string;
-    description: string;
-    lat: number;
-    lng: number;
-    type: "conflict" | "discovery" | "cultural" | "political" | "technological";
-  }>;
+  events: HistoricalEvent[];
+  filteredEvents: HistoricalEvent[];
 }
 
-export default function WorldMap({ selectedYear, events }: WorldMapProps) {
+export default function WorldMap({ events, filteredEvents }: WorldMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
 
@@ -64,59 +57,56 @@ export default function WorldMap({ selectedYear, events }: WorldMapProps) {
       // Clear existing markers
       markersRef.current.clearLayers();
 
-      // Filter events by year
-      const relevantEvents = events.filter(
-        (event) => event.year <= selectedYear && event.year > selectedYear - 100
-      );
-
       // Add markers for filtered events
-      relevantEvents.forEach((event) => {
-        const opacity = 1 - (selectedYear - event.year) / 100;
-
-        const colorMap = {
-          conflict: "#ef4444",
-          discovery: "#3b82f6",
-          cultural: "#a855f7",
-          political: "#f59e0b",
-          technological: "#10b981",
-        };
+      filteredEvents.forEach((event) => {
+        const color = CATEGORY_COLORS[event.primaryCategory];
+        const size = 8 + event.importance * 2; // Scale size by importance
 
         const icon = L.divIcon({
           html: `
             <div class="event-marker" style="
-              background: ${colorMap[event.type]};
-              opacity: ${opacity};
-              width: ${12 + opacity * 8}px;
-              height: ${12 + opacity * 8}px;
+              background: ${color};
+              width: ${size}px;
+              height: ${size}px;
               border-radius: 50%;
-              border: 2px solid rgba(255, 255, 255, ${opacity});
-              box-shadow: 0 0 ${20 * opacity}px ${colorMap[event.type]};
+              border: 2px solid rgba(255, 255, 255, 0.8);
+              box-shadow: 0 0 20px ${color};
               animation: pulse 2s infinite;
             "></div>
           `,
           className: "custom-marker",
-          iconSize: [20, 20],
-          iconAnchor: [10, 10],
+          iconSize: [size + 4, size + 4],
+          iconAnchor: [size / 2 + 2, size / 2 + 2],
         });
 
-        const marker = L.marker([event.lat, event.lng], { icon })
-          .bindPopup(
-            `
-            <div style="min-width: 200px;">
-              <h3 style="margin: 0 0 8px 0; font-weight: bold;">${event.title}</h3>
-              <p style="margin: 0 0 4px 0; color: #666; font-size: 12px;">${event.year}</p>
-              <p style="margin: 0; font-size: 14px;">${event.description}</p>
+        const categoriesList = event.categories
+          .map(
+            (cat) =>
+              `<span style="display: inline-block; background: ${CATEGORY_COLORS[cat]}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin: 2px;">${CATEGORY_LABELS[cat]}</span>`
+          )
+          .join("");
+
+        const marker = L.marker([event.lat, event.lng], { icon }).bindPopup(
+          `
+            <div style="min-width: 250px; max-width: 350px;">
+              <h3 style="margin: 0 0 8px 0; font-weight: bold; font-size: 16px;">${event.title}</h3>
+              <p style="margin: 0 0 8px 0; color: ${color}; font-size: 13px; font-weight: 600;">${event.year}</p>
+              <div style="margin-bottom: 8px;">
+                ${categoriesList}
+              </div>
+              <p style="margin: 0; font-size: 13px; line-height: 1.5;">${event.description}</p>
             </div>
           `,
-            {
-              className: "custom-popup",
-            }
-          );
+          {
+            className: "custom-popup",
+            maxWidth: 350,
+          }
+        );
 
         markersRef.current?.addLayer(marker);
       });
     }
-  }, [selectedYear, events]);
+  }, [filteredEvents]);
 
   return (
     <>
@@ -139,16 +129,26 @@ export default function WorldMap({ selectedYear, events }: WorldMapProps) {
         }
 
         .custom-popup .leaflet-popup-content-wrapper {
-          background: rgba(0, 0, 0, 0.9);
+          background: rgba(0, 0, 0, 0.95);
           color: white;
           border: 1px solid rgba(255, 255, 255, 0.2);
-          border-radius: 8px;
+          border-radius: 12px;
+          padding: 16px;
         }
 
         .custom-popup .leaflet-popup-tip {
-          background: rgba(0, 0, 0, 0.9);
+          background: rgba(0, 0, 0, 0.95);
           border-bottom: 1px solid rgba(255, 255, 255, 0.2);
           border-right: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .custom-popup .leaflet-popup-close-button {
+          color: white !important;
+          font-size: 20px !important;
+        }
+
+        .custom-popup .leaflet-popup-close-button:hover {
+          color: #ccc !important;
         }
       `}</style>
       <div id="world-map" className="w-full h-full" />
