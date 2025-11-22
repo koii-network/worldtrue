@@ -1,0 +1,38 @@
+{
+  "name": "worldtrue",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@ai-sdk/google-vertex": "^0.0.41",
+    "@google/genai": "^0.21.0",
+    "@mastra/core": "^0.1.27",
+    "@mastra/pg": "^0.1.27",
+    "@mastra/loggers": "^0.1.27",
+    "@t3-oss/env-nextjs": "^0.11.1",
+    "ai": "^3.4.33",
+    "drizzle-orm": "^0.38.2",
+    "next": "14.2.21",
+    "pg": "^8.13.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.11.10",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "drizzle-kit": "^0.30.1",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "14.2.21",
+    "typescript": "^5.7.2"
+  }
+}
