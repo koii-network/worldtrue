@@ -35,6 +35,7 @@ export default function ChatPanel({ isOpen, onClose, onEventsCreated, events }: 
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [keySaved, setKeySaved] = useState(false);
   const [mode, setMode] = useState<PanelMode>("research"); // Default to research mode
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -64,8 +65,13 @@ export default function ChatPanel({ isOpen, onClose, onEventsCreated, events }: 
   const saveApiKey = () => {
     if (apiKey.trim()) {
       localStorage.setItem("gemini-api-key", apiKey.trim());
-      setShowApiKeyInput(false);
+      setKeySaved(true);
       setError(null);
+      // Auto-hide after showing success
+      setTimeout(() => {
+        setShowApiKeyInput(false);
+        setKeySaved(false);
+      }, 1500);
     }
   };
 
@@ -213,11 +219,19 @@ export default function ChatPanel({ isOpen, onClose, onEventsCreated, events }: 
           <button
             onClick={() => setShowApiKeyInput(!showApiKeyInput)}
             className={`p-1.5 rounded-lg transition-colors ${
-              showApiKeyInput ? "bg-purple-500/20 text-purple-400" : "text-gray-500 hover:text-gray-300"
+              showApiKeyInput
+                ? "bg-purple-500/20 text-purple-400"
+                : apiKey
+                  ? "text-green-500 hover:text-green-400"
+                  : "text-gray-500 hover:text-gray-300"
             }`}
-            title="API Key Settings"
+            title={apiKey ? "API Key Saved ✓" : "API Key Settings"}
           >
-            <Key className="w-4 h-4" />
+            {apiKey && !showApiKeyInput ? (
+              <CheckCircle className="w-4 h-4" />
+            ) : (
+              <Key className="w-4 h-4" />
+            )}
           </button>
           <button
             onClick={onClose}
@@ -231,40 +245,50 @@ export default function ChatPanel({ isOpen, onClose, onEventsCreated, events }: 
       {/* API Key Section */}
       {showApiKeyInput && (
         <div className="px-4 py-3 border-b border-gray-800 bg-gray-800/50">
-          <label className="block text-xs text-gray-400 mb-2">
-            Enter your Gemini API key
-            <a
-              href="https://aistudio.google.com/app/apikey"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ml-1 text-purple-400 hover:text-purple-300"
-            >
-              (Get one free)
-            </a>
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="AIza..."
-              className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
-            />
-            <button
-              onClick={saveApiKey}
-              disabled={!apiKey.trim()}
-              className="px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 text-white text-sm rounded-lg transition-colors"
-            >
-              Save
-            </button>
-          </div>
-          {apiKey && !showApiKeyInput && (
-            <button
-              onClick={clearApiKey}
-              className="mt-2 text-xs text-red-400 hover:text-red-300"
-            >
-              Clear saved key
-            </button>
+          {keySaved ? (
+            <div className="flex items-center gap-2 text-green-400 py-2">
+              <CheckCircle className="w-5 h-5" />
+              <span className="text-sm font-medium">API key saved! You're all set.</span>
+            </div>
+          ) : (
+            <>
+              <label className="block text-xs text-gray-400 mb-2">
+                Enter your Gemini API key
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-1 text-purple-400 hover:text-purple-300"
+                >
+                  (Get one free)
+                </a>
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="AIza..."
+                  className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                  onKeyDown={(e) => e.key === "Enter" && saveApiKey()}
+                />
+                <button
+                  onClick={saveApiKey}
+                  disabled={!apiKey.trim()}
+                  className="px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 text-white text-sm rounded-lg transition-colors"
+                >
+                  Save
+                </button>
+              </div>
+              {apiKey && (
+                <button
+                  onClick={clearApiKey}
+                  className="mt-2 text-xs text-red-400 hover:text-red-300"
+                >
+                  Clear saved key
+                </button>
+              )}
+            </>
           )}
         </div>
       )}
