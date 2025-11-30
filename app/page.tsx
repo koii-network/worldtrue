@@ -413,13 +413,9 @@ export default function Home() {
       {/* Mobile Navigation */}
       <MobileNav
         onSearchClick={() => setShowMobileSearch(true)}
-        onEventsClick={() => setShowEventsList(true)}
         onAIClick={() => setShowChat(true)}
         onAddClick={handleAddEvent}
-        eventCount={filteredEvents.length}
-        pendingCount={pendingEvents.length}
         isAIOpen={showChat}
-        isEventsOpen={showEventsList}
       />
 
       {/* Mobile Search Overlay */}
