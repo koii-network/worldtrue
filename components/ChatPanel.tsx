@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { X, Send, Key, Loader2, Bot, User, Sparkles, AlertCircle, Wand2, MessageSquare, MapPin, CheckCircle, Search } from "lucide-react";
+import { X, Send, Key, Loader2, Bot, User, Sparkles, AlertCircle, Wand2, MessageSquare, MapPin, CheckCircle, Search, Cloud, CloudOff } from "lucide-react";
 import ResearchPanel from "./ResearchPanel";
+import { useSession } from "@/lib/auth-client";
 
 interface Message {
   id: string;
@@ -37,20 +38,70 @@ export default function ChatPanel({ isOpen, onClose, onEventsCreated, events }: 
   const [error, setError] = useState<string | null>(null);
   const [keySaved, setKeySaved] = useState(false);
   const [isKeyLoading, setIsKeyLoading] = useState(true);
+  const [isSyncedToCloud, setIsSyncedToCloud] = useState(false);
   const [mode, setMode] = useState<PanelMode>("research"); // Default to research mode
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const { data: session } = useSession();
 
-  // Load API key from localStorage
+  // Load API key - from database if logged in, otherwise from localStorage
   useEffect(() => {
-    const savedKey = localStorage.getItem("gemini-api-key");
-    if (savedKey) {
-      setApiKey(savedKey);
-    } else {
-      setShowApiKeyInput(true);
-    }
-    setIsKeyLoading(false);
-  }, []);
+    const loadApiKey = async () => {
+      setIsKeyLoading(true);
+
+      // First, check localStorage for immediate loading
+      const localKey = localStorage.getItem("gemini-api-key");
+
+      // If logged in, try to fetch from database
+      if (session?.user) {
+        try {
+          const response = await fetch("/api/settings");
+          if (response.ok) {
+            const data = await response.json();
+            if (data.geminiApiKey) {
+              // Database key takes precedence
+              setApiKey(data.geminiApiKey);
+              localStorage.setItem("gemini-api-key", data.geminiApiKey);
+              setIsSyncedToCloud(true);
+              setIsKeyLoading(false);
+              return;
+            }
+          }
+        } catch (err) {
+          console.error("Failed to fetch API key from database:", err);
+        }
+
+        // If we have a local key but not in database, sync it up
+        if (localKey) {
+          setApiKey(localKey);
+          // Sync local key to database
+          try {
+            await fetch("/api/settings", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ geminiApiKey: localKey }),
+            });
+            setIsSyncedToCloud(true);
+          } catch (err) {
+            console.error("Failed to sync API key to database:", err);
+          }
+          setIsKeyLoading(false);
+          return;
+        }
+      }
+
+      // Fall back to localStorage only
+      if (localKey) {
+        setApiKey(localKey);
+        setIsSyncedToCloud(false);
+      } else {
+        setShowApiKeyInput(true);
+      }
+      setIsKeyLoading(false);
+    };
+
+    loadApiKey();
+  }, [session?.user]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -64,11 +115,28 @@ export default function ChatPanel({ isOpen, onClose, onEventsCreated, events }: 
     }
   }, [isOpen, apiKey, showApiKeyInput]);
 
-  const saveApiKey = () => {
+  const saveApiKey = async () => {
     if (apiKey.trim()) {
-      localStorage.setItem("gemini-api-key", apiKey.trim());
+      const trimmedKey = apiKey.trim();
+      localStorage.setItem("gemini-api-key", trimmedKey);
       setKeySaved(true);
       setError(null);
+
+      // If logged in, also save to database for cross-device sync
+      if (session?.user) {
+        try {
+          await fetch("/api/settings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ geminiApiKey: trimmedKey }),
+          });
+          setIsSyncedToCloud(true);
+        } catch (err) {
+          console.error("Failed to sync API key to database:", err);
+          setIsSyncedToCloud(false);
+        }
+      }
+
       // Auto-hide after showing success
       setTimeout(() => {
         setShowApiKeyInput(false);
@@ -77,10 +145,20 @@ export default function ChatPanel({ isOpen, onClose, onEventsCreated, events }: 
     }
   };
 
-  const clearApiKey = () => {
+  const clearApiKey = async () => {
     localStorage.removeItem("gemini-api-key");
     setApiKey("");
     setShowApiKeyInput(true);
+    setIsSyncedToCloud(false);
+
+    // If logged in, also clear from database
+    if (session?.user) {
+      try {
+        await fetch("/api/settings", { method: "DELETE" });
+      } catch (err) {
+        console.error("Failed to clear API key from database:", err);
+      }
+    }
   };
 
   const sendMessage = async () => {
@@ -220,17 +298,28 @@ export default function ChatPanel({ isOpen, onClose, onEventsCreated, events }: 
           </div>
           <button
             onClick={() => setShowApiKeyInput(!showApiKeyInput)}
-            className={`p-1.5 rounded-lg transition-colors ${
+            className={`p-1.5 rounded-lg transition-colors relative ${
               showApiKeyInput
                 ? "bg-purple-500/20 text-purple-400"
                 : apiKey
                   ? "text-green-500 hover:text-green-400"
                   : "text-gray-500 hover:text-gray-300"
             }`}
-            title={apiKey ? "API Key Saved ✓" : "API Key Settings"}
+            title={
+              apiKey
+                ? isSyncedToCloud
+                  ? "API Key Synced to Cloud ☁️"
+                  : "API Key Saved (Local Only)"
+                : "API Key Settings"
+            }
           >
             {apiKey && !showApiKeyInput ? (
-              <CheckCircle className="w-4 h-4" />
+              <div className="relative">
+                <CheckCircle className="w-4 h-4" />
+                {isSyncedToCloud && (
+                  <Cloud className="w-2.5 h-2.5 absolute -top-1 -right-1 text-blue-400" />
+                )}
+              </div>
             ) : (
               <Key className="w-4 h-4" />
             )}
@@ -250,7 +339,15 @@ export default function ChatPanel({ isOpen, onClose, onEventsCreated, events }: 
           {keySaved ? (
             <div className="flex items-center gap-2 text-green-400 py-2">
               <CheckCircle className="w-5 h-5" />
-              <span className="text-sm font-medium">API key saved! You're all set.</span>
+              <div>
+                <span className="text-sm font-medium">API key saved!</span>
+                {session?.user && (
+                  <span className="flex items-center gap-1 text-xs text-blue-400 mt-0.5">
+                    <Cloud className="w-3 h-3" />
+                    Synced across devices
+                  </span>
+                )}
+              </div>
             </div>
           ) : (
             <>
@@ -282,14 +379,27 @@ export default function ChatPanel({ isOpen, onClose, onEventsCreated, events }: 
                   Save
                 </button>
               </div>
-              {apiKey && (
-                <button
-                  onClick={clearApiKey}
-                  className="mt-2 text-xs text-red-400 hover:text-red-300"
-                >
-                  Clear saved key
-                </button>
-              )}
+              <div className="flex items-center justify-between mt-2">
+                {apiKey && (
+                  <button
+                    onClick={clearApiKey}
+                    className="text-xs text-red-400 hover:text-red-300"
+                  >
+                    Clear saved key
+                  </button>
+                )}
+                {session?.user ? (
+                  <span className="flex items-center gap-1 text-xs text-blue-400 ml-auto">
+                    <Cloud className="w-3 h-3" />
+                    Will sync across devices
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-xs text-gray-500 ml-auto">
+                    <CloudOff className="w-3 h-3" />
+                    Login to sync across devices
+                  </span>
+                )}
+              </div>
             </>
           )}
         </div>

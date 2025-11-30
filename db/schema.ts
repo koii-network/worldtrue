@@ -71,6 +71,19 @@ export const verification = pgTable('verification', {
   updatedAt: timestamp('updated_at').defaultNow(),
 });
 
+// User Settings table (for API keys and preferences)
+export const userSettings = pgTable('user_settings', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().unique().references(() => user.id, { onDelete: 'cascade' }),
+  geminiApiKey: text('gemini_api_key'), // Encrypted API key
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => {
+  return {
+    userIdIdx: index('user_settings_user_id_idx').on(table.userId),
+  };
+});
+
 // ============================================
 // Legacy Users table (kept for backward compatibility)
 // ============================================

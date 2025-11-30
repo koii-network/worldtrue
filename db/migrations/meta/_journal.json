@@ -15,6 +15,13 @@
       "when": 1764253686304,
       "tag": "0001_married_unus",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1764502596190,
+      "tag": "0002_flat_fat_cobra",
+      "breakpoints": true
     }
   ]
 }
