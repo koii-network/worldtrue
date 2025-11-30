@@ -36,6 +36,7 @@ export default function ChatPanel({ isOpen, onClose, onEventsCreated, events }: 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [keySaved, setKeySaved] = useState(false);
+  const [isKeyLoading, setIsKeyLoading] = useState(true);
   const [mode, setMode] = useState<PanelMode>("research"); // Default to research mode
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -48,6 +49,7 @@ export default function ChatPanel({ isOpen, onClose, onEventsCreated, events }: 
     } else {
       setShowApiKeyInput(true);
     }
+    setIsKeyLoading(false);
   }, []);
 
   // Scroll to bottom on new messages
@@ -296,42 +298,54 @@ export default function ChatPanel({ isOpen, onClose, onEventsCreated, events }: 
       {/* Research Panel */}
       {mode === "research" ? (
         <div className="flex-1 overflow-y-auto">
-          <ResearchPanel apiKey={apiKey} onEventsCreated={onEventsCreated} />
+          {isKeyLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+            </div>
+          ) : (
+            <ResearchPanel apiKey={apiKey} onEventsCreated={onEventsCreated} />
+          )}
         </div>
       ) : (
         <>
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && !showApiKeyInput && (
-          <div className="text-center py-8">
-            <Bot className="w-12 h-12 text-gray-700 mx-auto mb-3" />
-            <p className="text-gray-500 text-sm mb-4">
-              {mode === "agent"
-                ? "Ask me to find and map historical events!"
-                : "Ask me anything about historical events!"}
-            </p>
-            <div className="space-y-2 text-left">
-              <p className="text-xs text-gray-600">Try asking:</p>
-              {(mode === "agent" ? [
-                "Find events about the fall of Rome",
-                "Map technological discoveries in the 1900s",
-                "Show me cultural events in Paris during the 1920s",
-              ] : [
-                "What happened in ancient Rome?",
-                "Tell me about events in 1789",
-                "What discoveries were made in the Americas?",
-              ]).map((suggestion) => (
-                <button
-                  key={suggestion}
-                  onClick={() => setInput(suggestion)}
-                  className="block w-full text-left px-3 py-2 text-sm text-gray-400 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors"
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
+        {isKeyLoading ? (
+          <div className="flex items-center justify-center h-32">
+            <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
           </div>
-        )}
+        ) : (
+          <>
+            {messages.length === 0 && !showApiKeyInput && (
+              <div className="text-center py-8">
+                <Bot className="w-12 h-12 text-gray-700 mx-auto mb-3" />
+                <p className="text-gray-500 text-sm mb-4">
+                  {mode === "agent"
+                    ? "Ask me to find and map historical events!"
+                    : "Ask me anything about historical events!"}
+                </p>
+                <div className="space-y-2 text-left">
+                  <p className="text-xs text-gray-600">Try asking:</p>
+                  {(mode === "agent" ? [
+                    "Find events about the fall of Rome",
+                    "Map technological discoveries in the 1900s",
+                    "Show me cultural events in Paris during the 1920s",
+                  ] : [
+                    "What happened in ancient Rome?",
+                    "Tell me about events in 1789",
+                    "What discoveries were made in the Americas?",
+                  ]).map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      onClick={() => setInput(suggestion)}
+                      className="block w-full text-left px-3 py-2 text-sm text-gray-400 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
         {messages.map((message) => (
           <div key={message.id}>
@@ -402,6 +416,8 @@ export default function ChatPanel({ isOpen, onClose, onEventsCreated, events }: 
         )}
 
         <div ref={messagesEndRef} />
+          </>
+        )}
       </div>
 
       {/* Input */}
