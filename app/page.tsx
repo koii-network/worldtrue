@@ -7,6 +7,8 @@ import EventModal, { EventFormData } from "@/components/EventModal";
 import AuthButton from "@/components/AuthButton";
 import ChatPanel from "@/components/ChatPanel";
 import EventListPopover from "@/components/EventListPopover";
+import MobileNav from "@/components/MobileNav";
+import MobileSearch from "@/components/MobileSearch";
 import type { SuggestedEventWithSource } from "@/components/Map";
 
 const Map = dynamic(() => import("@/components/Map"), {
@@ -70,6 +72,9 @@ export default function Home() {
 
   // Chat state
   const [showChat, setShowChat] = useState(false);
+
+  // Mobile search state
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
 
   // Events list popover state
   const [showEventsList, setShowEventsList] = useState(false);
@@ -217,15 +222,15 @@ export default function Home() {
 
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 z-10 p-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 md:gap-4">
           {/* Logo */}
           <div className="flex items-center gap-2 bg-gray-900/80 backdrop-blur-sm px-4 py-2 rounded-full border border-gray-800">
             <Globe className="w-5 h-5 text-purple-400" />
             <span className="font-semibold text-white">WorldTrue</span>
           </div>
 
-          {/* Search */}
-          <div className="flex-1 max-w-md">
+          {/* Search - Desktop only */}
+          <div className="hidden md:block flex-1 max-w-md">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
               <input
@@ -246,38 +251,41 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Filter Toggle */}
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-colors ${
-              showFilters
-                ? "bg-purple-500/20 border-purple-500/50 text-purple-300"
-                : "bg-gray-900/80 backdrop-blur-sm border-gray-800 text-gray-300 hover:border-gray-700"
-            }`}
-          >
-            <Filter className="w-4 h-4" />
-            <span className="text-sm">Filters</span>
-            {selectedTypes.length < eventTypes.length && (
-              <span className="bg-purple-500 text-white text-xs px-1.5 py-0.5 rounded-full">
-                {selectedTypes.length}
-              </span>
-            )}
-          </button>
+          {/* Desktop only controls */}
+          <div className="hidden md:flex items-center gap-2">
+            {/* Filter Toggle */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-colors ${
+                showFilters
+                  ? "bg-purple-500/20 border-purple-500/50 text-purple-300"
+                  : "bg-gray-900/80 backdrop-blur-sm border-gray-800 text-gray-300 hover:border-gray-700"
+              }`}
+            >
+              <Filter className="w-4 h-4" />
+              <span className="text-sm">Filters</span>
+              {selectedTypes.length < eventTypes.length && (
+                <span className="bg-purple-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                  {selectedTypes.length}
+                </span>
+              )}
+            </button>
 
-          {/* Chat Toggle */}
-          <button
-            onClick={() => setShowChat(!showChat)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-colors ${
-              showChat
-                ? "bg-purple-500/20 border-purple-500/50 text-purple-300"
-                : "bg-gray-900/80 backdrop-blur-sm border-gray-800 text-gray-300 hover:border-gray-700"
-            }`}
-          >
-            <MessageSquare className="w-4 h-4" />
-            <span className="text-sm">Ask AI</span>
-          </button>
+            {/* Chat Toggle */}
+            <button
+              onClick={() => setShowChat(!showChat)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-colors ${
+                showChat
+                  ? "bg-purple-500/20 border-purple-500/50 text-purple-300"
+                  : "bg-gray-900/80 backdrop-blur-sm border-gray-800 text-gray-300 hover:border-gray-700"
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span className="text-sm">Ask AI</span>
+            </button>
+          </div>
 
-          {/* Auth Button */}
+          {/* Auth Button - Always visible */}
           <AuthButton />
         </div>
 
@@ -316,8 +324,8 @@ export default function Home() {
         )}
       </header>
 
-      {/* Add Event Button */}
-      <div className="absolute bottom-20 left-6 z-10">
+      {/* Add Event Button - Desktop only */}
+      <div className="absolute bottom-20 left-6 z-10 hidden md:block">
         <button
           onClick={handleAddEvent}
           className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-full shadow-lg transition-colors"
@@ -327,9 +335,9 @@ export default function Home() {
         </button>
       </div>
 
-      {/* Event Count - Clickable to show popover */}
+      {/* Event Count - Clickable to show popover - Desktop only */}
       {!showEventsList && (
-        <div className="absolute bottom-6 left-6 z-10">
+        <div className="absolute bottom-6 left-6 z-10 hidden md:block">
           <button
             onClick={() => setShowEventsList(true)}
             className="bg-gray-900/80 backdrop-blur-sm border border-gray-800 rounded-full px-4 py-2 text-sm text-gray-400 hover:border-gray-700 hover:bg-gray-900/90 transition-colors cursor-pointer flex items-center gap-2"
@@ -366,8 +374,8 @@ export default function Home() {
         isSearching={isSearchingSuggestions}
       />
 
-      {/* Legend */}
-      <div className="absolute bottom-6 right-20 z-10">
+      {/* Legend - Desktop only */}
+      <div className="absolute bottom-6 right-20 z-10 hidden md:block">
         <div className="bg-gray-900/80 backdrop-blur-sm border border-gray-800 rounded-xl p-3">
           <div className="flex gap-4">
             {eventTypes
@@ -400,6 +408,29 @@ export default function Home() {
         onClose={() => setShowChat(false)}
         onEventsCreated={fetchEvents}
         events={filteredEvents}
+      />
+
+      {/* Mobile Navigation */}
+      <MobileNav
+        onSearchClick={() => setShowMobileSearch(true)}
+        onEventsClick={() => setShowEventsList(true)}
+        onAIClick={() => setShowChat(true)}
+        onAddClick={handleAddEvent}
+        eventCount={filteredEvents.length}
+        pendingCount={pendingEvents.length}
+        isAIOpen={showChat}
+        isEventsOpen={showEventsList}
+      />
+
+      {/* Mobile Search Overlay */}
+      <MobileSearch
+        isOpen={showMobileSearch}
+        onClose={() => setShowMobileSearch(false)}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        selectedTypes={selectedTypes}
+        onTypeToggle={toggleType}
+        eventTypes={eventTypes}
       />
     </main>
   );

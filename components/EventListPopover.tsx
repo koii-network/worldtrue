@@ -175,8 +175,8 @@ export default function EventListPopover({
   };
 
   return (
-    <div className="absolute bottom-6 left-6 z-20">
-      <div className="bg-gray-900/95 backdrop-blur-sm border border-gray-800 rounded-xl shadow-2xl w-80 max-h-[70vh] flex flex-col overflow-hidden">
+    <div className="fixed bottom-16 left-0 right-0 md:absolute md:bottom-6 md:left-6 md:right-auto z-20">
+      <div className="bg-gray-900/95 backdrop-blur-sm border border-gray-800 rounded-t-2xl md:rounded-xl shadow-2xl w-full md:w-80 max-h-[60vh] md:max-h-[70vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
           <div className="flex items-center gap-2">

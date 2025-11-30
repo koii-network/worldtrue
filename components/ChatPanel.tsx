@@ -154,7 +154,12 @@ export default function ChatPanel({ isOpen, onClose, onEventsCreated, events }: 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed right-0 top-0 bottom-0 w-96 bg-gray-900 border-l border-gray-800 shadow-2xl z-50 flex flex-col">
+    <div className="fixed inset-0 md:inset-auto md:right-0 md:top-0 md:bottom-0 md:w-96 bg-gray-900 border-l border-gray-800 shadow-2xl z-50 flex flex-col">
+      {/* Mobile swipe indicator */}
+      <div className="md:hidden flex justify-center py-2 border-b border-gray-800/50">
+        <div className="w-12 h-1 bg-gray-700 rounded-full" />
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
         <div className="flex items-center gap-2">
