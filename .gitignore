@@ -60,3 +60,4 @@ temp/
 *.pem
 *-credentials.json
 service-account-key.json
+.vercel

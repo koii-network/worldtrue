@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Globe, Search, Filter, X, Plus, MessageSquare, Loader2 } from "lucide-react";
 import EventModal, { EventFormData } from "@/components/EventModal";
 import AuthButton from "@/components/AuthButton";
 import ChatPanel from "@/components/ChatPanel";
 import EventListPopover from "@/components/EventListPopover";
+import EventDetailPanel from "@/components/EventDetailPanel";
+import SearchDropdown from "@/components/SearchDropdown";
 import MobileNav from "@/components/MobileNav";
 import MobileSearch from "@/components/MobileSearch";
 import type { SuggestedEventWithSource } from "@/components/Map";
@@ -30,7 +33,14 @@ interface MapEvent {
   lat: number;
   lng: number;
   year: number;
-  type: "conflict" | "discovery" | "cultural" | "political" | "technological";
+  type: "conflict" | "discovery" | "cultural" | "political" | "technological" | "news" | "breaking" | "world" | "business" | "tech" | "sports";
+  // News-specific fields
+  source?: string;
+  sourceUrl?: string;
+  imageUrl?: string;
+  timestamp?: string;
+  country?: string;
+  sentiment?: "positive" | "negative" | "neutral";
 }
 
 // Sample events as fallback
@@ -46,17 +56,38 @@ const sampleEvents: MapEvent[] = [
   { id: "9", year: 1789, title: "French Revolution", description: "Storming of the Bastille marks the revolution's start.", lat: 48.8566, lng: 2.3522, type: "political" },
   { id: "10", year: 1969, title: "Moon Landing", description: "Apollo 11 lands the first humans on the Moon.", lat: 28.5383, lng: -80.6054, type: "technological" },
   { id: "11", year: 1989, title: "Fall of Berlin Wall", description: "The Berlin Wall falls, symbolizing end of Cold War.", lat: 52.5163, lng: 13.3777, type: "political" },
+  // China's Century of Humiliation - British Opium Trade
+  { id: "12", year: 1773, title: "British East India Company Opium Monopoly", description: "The EIC establishes monopoly over Bengal opium production, systematically cultivating and exporting opium to China despite Qing prohibition, creating widespread addiction.", lat: 25.5941, lng: 85.1376, type: "political" },
+  { id: "13", year: 1839, title: "Lin Zexu Destroys Opium at Humen", description: "Imperial Commissioner Lin Zexu publicly destroys 1.2 million kg of confiscated British opium over 23 days, triggering diplomatic crisis and eventual war with Britain.", lat: 22.8167, lng: 113.6667, type: "political" },
+  { id: "14", year: 1839, title: "First Opium War Begins", description: "Britain declares war on Qing China after Commissioner Lin Zexu destroys British opium in Canton. The war would force China to open ports to British trade and cede Hong Kong.", lat: 23.1291, lng: 113.2644, type: "conflict" },
+  { id: "15", year: 1842, title: "Treaty of Nanking", description: "First of the 'unequal treaties' ending the First Opium War. China cedes Hong Kong to Britain, opens five treaty ports, and pays 21 million silver dollars in reparations.", lat: 32.0603, lng: 118.7969, type: "political" },
+  { id: "16", year: 1850, title: "Taiping Rebellion Begins", description: "Hong Xiuquan leads a massive uprising against the Qing dynasty, partly fueled by social instability from opium addiction and foreign incursions. Would claim 20-30 million lives.", lat: 24.4803, lng: 118.0894, type: "conflict" },
+  { id: "17", year: 1856, title: "Second Opium War Begins", description: "Britain and France attack China after the Arrow Incident. The war would result in further concessions, legalization of opium trade, and opening of additional ports.", lat: 23.1291, lng: 113.2644, type: "conflict" },
+  { id: "18", year: 1858, title: "Treaty of Tientsin", description: "Unequal treaty opening 10 more Chinese ports to Western trade, legalizing the opium trade, permitting foreign ships on the Yangtze, and allowing Christian missionaries into China.", lat: 39.0842, lng: 117.2009, type: "political" },
+  { id: "19", year: 1860, title: "Burning of the Old Summer Palace", description: "British and French troops loot and destroy the Yuanmingyuan (Old Summer Palace) in retaliation for the torture of diplomats. One of the most devastating cultural losses in Chinese history.", lat: 40.0089, lng: 116.2983, type: "conflict" },
+  { id: "20", year: 1860, title: "Convention of Peking", description: "Treaty ending Second Opium War. China cedes Kowloon Peninsula to Britain, opens Tianjin as treaty port, legalizes opium trade, and allows foreign missionaries throughout China.", lat: 39.9042, lng: 116.4074, type: "political" },
+  { id: "21", year: 1900, title: "Boxer Rebellion", description: "Anti-foreign, anti-Christian uprising by the 'Righteous Harmony Society.' Eight-nation alliance including Britain crushes the rebellion, leading to further indemnities and humiliation.", lat: 39.9042, lng: 116.4074, type: "conflict" },
 ];
 
 const eventTypes = [
+  // Historical event types
   { id: "conflict", label: "Conflict", color: "#ef4444" },
   { id: "discovery", label: "Discovery", color: "#3b82f6" },
   { id: "cultural", label: "Cultural", color: "#a855f7" },
   { id: "political", label: "Political", color: "#f59e0b" },
   { id: "technological", label: "Technology", color: "#10b981" },
+  // News types
+  { id: "breaking", label: "Breaking", color: "#dc2626" },
+  { id: "world", label: "World", color: "#0ea5e9" },
+  { id: "business", label: "Business", color: "#84cc16" },
+  { id: "tech", label: "Tech", color: "#06b6d4" },
+  { id: "sports", label: "Sports", color: "#f97316" },
 ];
 
-export default function Home() {
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<string[]>(eventTypes.map((t) => t.id));
   const [showFilters, setShowFilters] = useState(false);
@@ -83,6 +114,9 @@ export default function Home() {
   // Pending/queued events from "Find Similar" searches
   const [pendingEvents, setPendingEvents] = useState<SuggestedEventWithSource[]>([]);
   const [isSearchingSuggestions, setIsSearchingSuggestions] = useState(false);
+
+  // Selected event for detail panel
+  const [selectedEvent, setSelectedEvent] = useState<MapEvent | null>(null);
 
   // API key for map hover features
   const [apiKey, setApiKey] = useState("");
@@ -115,6 +149,18 @@ export default function Home() {
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
+
+  // Handle URL parameter for event deep linking
+  useEffect(() => {
+    const eventId = searchParams.get("event");
+    if (eventId && events.length > 0 && !isLoading) {
+      const event = events.find((e) => e.id === eventId);
+      if (event) {
+        setSelectedEvent(event);
+        setHighlightedEventId(eventId);
+      }
+    }
+  }, [searchParams, events, isLoading]);
 
   const filteredEvents = useMemo(() => {
     return events.filter((event) => {
@@ -187,11 +233,32 @@ export default function Home() {
     setPendingEvents(prev => prev.filter(e => e.title !== title));
   }, []);
 
+  // Handle event click - show detail panel and update URL
+  const handleEventClick = useCallback((event: MapEvent) => {
+    setSelectedEvent(event);
+    setHighlightedEventId(event.id);
+    // Update URL without full page reload
+    const url = new URL(window.location.href);
+    url.searchParams.set("event", event.id);
+    window.history.pushState({}, "", url.toString());
+  }, []);
+
+  // Handle closing the detail panel
+  const handleCloseDetailPanel = useCallback(() => {
+    setSelectedEvent(null);
+    setHighlightedEventId(null);
+    // Clear the event from URL
+    const url = new URL(window.location.href);
+    url.searchParams.delete("event");
+    window.history.pushState({}, "", url.toString());
+  }, []);
+
   return (
     <main className="h-screen w-screen overflow-hidden bg-gray-950 relative">
       {/* Map */}
       <Map
         events={filteredEvents}
+        onEventClick={handleEventClick}
         selectMode={selectingLocation}
         onLocationSelect={handleLocationSelect}
         pendingLocation={pendingLocation}
@@ -231,24 +298,15 @@ export default function Home() {
 
           {/* Search - Desktop only */}
           <div className="hidden md:block flex-1 max-w-md">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search events..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-gray-900/80 backdrop-blur-sm border border-gray-800 rounded-full py-2 pl-10 pr-4 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/50"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
+            <SearchDropdown
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              events={events}
+              onTopicSelect={(topic) => setSearchQuery(topic)}
+              onTypeSelect={toggleType}
+              selectedTypes={selectedTypes}
+              eventTypes={eventTypes}
+            />
           </div>
 
           {/* Desktop only controls */}
@@ -367,6 +425,7 @@ export default function Home() {
         }}
         events={filteredEvents}
         onEventHover={setHighlightedEventId}
+        onEventClick={handleEventClick}
         apiKey={apiKey}
         onEventsCreated={fetchEvents}
         pendingEvents={pendingEvents}
@@ -428,6 +487,30 @@ export default function Home() {
         onTypeToggle={toggleType}
         eventTypes={eventTypes}
       />
+
+      {/* Event Detail Panel with Comments */}
+      <EventDetailPanel
+        event={selectedEvent}
+        onClose={handleCloseDetailPanel}
+      />
     </main>
+  );
+}
+
+// Main export with Suspense boundary for useSearchParams
+export default function Home() {
+  return (
+    <Suspense
+      fallback={
+        <div className="h-screen w-screen flex items-center justify-center bg-gray-950">
+          <div className="flex items-center gap-3 text-gray-400">
+            <Globe className="w-6 h-6 animate-pulse" />
+            <span>Loading...</span>
+          </div>
+        </div>
+      }
+    >
+      <HomeContent />
+    </Suspense>
   );
 }

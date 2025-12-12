@@ -12,7 +12,14 @@ interface MapEvent {
   lat: number;
   lng: number;
   year: number;
-  type: "conflict" | "discovery" | "cultural" | "political" | "technological";
+  type: "conflict" | "discovery" | "cultural" | "political" | "technological" | "news" | "breaking" | "world" | "business" | "tech" | "sports";
+  // News-specific fields (optional for historical events)
+  source?: string;        // News source name (e.g., "Reuters", "BBC")
+  sourceUrl?: string;     // Link to original article
+  imageUrl?: string;      // Featured image
+  timestamp?: string;     // ISO timestamp for news items
+  country?: string;       // Country code or name
+  sentiment?: "positive" | "negative" | "neutral";  // AI-analyzed sentiment
 }
 
 interface SuggestedEvent {
@@ -52,11 +59,19 @@ interface MapProps {
 }
 
 const typeColors: Record<string, string> = {
+  // Historical event types
   conflict: "#ef4444",
   discovery: "#3b82f6",
   cultural: "#a855f7",
   political: "#f59e0b",
   technological: "#10b981",
+  // News types
+  news: "#6366f1",      // Indigo
+  breaking: "#dc2626",  // Red (urgent)
+  world: "#0ea5e9",     // Sky blue
+  business: "#84cc16",  // Lime
+  tech: "#06b6d4",      // Cyan
+  sports: "#f97316",    // Orange
 };
 
 export default function Map({
@@ -96,32 +111,10 @@ export default function Map({
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
 
+    // Use free dark style from CartoCDN (no API key required)
     map.current = new maplibregl.Map({
       container: mapContainer.current,
-      style: {
-        version: 8,
-        sources: {
-          "carto-dark": {
-            type: "raster",
-            tiles: [
-              "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-              "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-              "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-            ],
-            tileSize: 256,
-            attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
-          },
-        },
-        layers: [
-          {
-            id: "carto-dark-layer",
-            type: "raster",
-            source: "carto-dark",
-            minzoom: 0,
-            maxzoom: 22,
-          },
-        ],
-      },
+      style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
       center: [0, 20],
       zoom: 1.5,
       minZoom: 1,
@@ -129,7 +122,7 @@ export default function Map({
     });
 
     map.current.addControl(
-      new maplibregl.NavigationControl({ showCompass: false }),
+      new maplibregl.NavigationControl({ showCompass: true }),
       "bottom-right"
     );
 
@@ -279,8 +272,9 @@ export default function Map({
       }
     });
 
-    // Apply highlight to selected marker and fly to it if not in view
+    // Apply highlight to selected marker and fly to it
     if (highlightedEventId) {
+      console.log('[Map] Highlighting event:', highlightedEventId);
       const dot = markerElementsRef.current[highlightedEventId];
       const event = events.find(e => e.id === highlightedEventId);
       if (dot && event) {
@@ -289,19 +283,47 @@ export default function Map({
         dot.style.borderColor = "#60a5fa";
         dot.style.transform = "scale(1.3)";
 
-        // Check if event is in view, if not fly to it smoothly
-        const bounds = map.current.getBounds();
-        const eventLngLat = new maplibregl.LngLat(event.lng, event.lat);
+        // Calculate distance to nearest neighbor to determine ideal zoom
+        const otherEvents = events.filter(e => e.id !== highlightedEventId);
+        let minDistance = Infinity;
 
-        if (!bounds.contains(eventLngLat)) {
-          // Event is not in view - fly to it smoothly
-          map.current.flyTo({
-            center: [event.lng, event.lat],
-            zoom: Math.max(map.current.getZoom(), 4),
-            duration: 1500,
-            essential: true,
-          });
+        otherEvents.forEach(other => {
+          // Haversine-like approximation for distance
+          const dLat = Math.abs(event.lat - other.lat);
+          const dLng = Math.abs(event.lng - other.lng);
+          const distance = Math.sqrt(dLat * dLat + dLng * dLng);
+          if (distance < minDistance) {
+            minDistance = distance;
+          }
+        });
+
+        // Calculate ideal zoom based on nearest neighbor distance
+        // We want the nearest dot to be visible but with good spacing
+        // Smaller distance = need more zoom, larger distance = less zoom
+        let targetZoom: number;
+        if (minDistance === Infinity || otherEvents.length === 0) {
+          targetZoom = 5; // Default zoom for single event
+        } else if (minDistance < 1) {
+          targetZoom = 8; // Very close events - zoom in more
+        } else if (minDistance < 5) {
+          targetZoom = 6; // Nearby events
+        } else if (minDistance < 20) {
+          targetZoom = 4; // Medium distance
+        } else {
+          targetZoom = 3; // Far apart events
         }
+
+        // Clamp zoom to reasonable bounds
+        targetZoom = Math.max(2, Math.min(10, targetZoom));
+
+        // Always fly to the event for smooth navigation
+        console.log('[Map] Flying to:', event.title, 'at zoom:', targetZoom, 'coords:', [event.lng, event.lat]);
+        map.current.flyTo({
+          center: [event.lng, event.lat],
+          zoom: targetZoom,
+          duration: 1200,
+          essential: true,
+        });
       }
     }
   }, [highlightedEventId, loaded, events]);
@@ -461,6 +483,18 @@ export default function Map({
           }}
         >
           <div className="bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl backdrop-blur-sm max-w-sm">
+            {/* News Image (if available) */}
+            {hoveredEvent.imageUrl && (
+              <div className="relative h-32 overflow-hidden rounded-t-xl">
+                <img
+                  src={hoveredEvent.imageUrl}
+                  alt={hoveredEvent.title}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-900/80 to-transparent" />
+              </div>
+            )}
+
             {/* Event Details */}
             <div className="p-4">
               <div className="flex items-start justify-between gap-2">
@@ -468,7 +502,7 @@ export default function Map({
                   {hoveredEvent.title}
                 </h3>
                 <span
-                  className="px-2 py-0.5 rounded text-xs font-medium"
+                  className="px-2 py-0.5 rounded text-xs font-medium flex-shrink-0"
                   style={{
                     backgroundColor: `${typeColors[hoveredEvent.type]}20`,
                     color: typeColors[hoveredEvent.type],
@@ -477,21 +511,70 @@ export default function Map({
                   {hoveredEvent.type}
                 </span>
               </div>
-              <p className="text-gray-400 text-xs mt-1">{hoveredEvent.year}</p>
+
+              {/* News metadata (source, timestamp) or historical year */}
+              <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
+                {hoveredEvent.source ? (
+                  <>
+                    <span className="font-medium text-gray-300">{hoveredEvent.source}</span>
+                    {hoveredEvent.timestamp && (
+                      <>
+                        <span>•</span>
+                        <span>{new Date(hoveredEvent.timestamp).toLocaleDateString()}</span>
+                      </>
+                    )}
+                    {hoveredEvent.country && (
+                      <>
+                        <span>•</span>
+                        <span>{hoveredEvent.country}</span>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <span>{hoveredEvent.year}</span>
+                )}
+              </div>
+
+              {/* Sentiment indicator for news */}
+              {hoveredEvent.sentiment && (
+                <div className="mt-2 flex items-center gap-1.5">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      hoveredEvent.sentiment === "positive" ? "bg-green-500" :
+                      hoveredEvent.sentiment === "negative" ? "bg-red-500" :
+                      "bg-gray-500"
+                    }`}
+                  />
+                  <span className="text-xs text-gray-400 capitalize">{hoveredEvent.sentiment}</span>
+                </div>
+              )}
+
               <p className="text-gray-300 text-xs mt-2 line-clamp-3">
                 {hoveredEvent.description}
               </p>
 
-              {/* Wikipedia Link */}
-              <a
-                href={getWikipediaUrl(hoveredEvent.title, hoveredEvent.year)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded-lg text-blue-400 text-xs font-medium transition-colors"
-              >
-                <ExternalLink className="w-3 h-3" />
-                View on Wikipedia
-              </a>
+              {/* Source Link for news OR Wikipedia for historical */}
+              {hoveredEvent.sourceUrl ? (
+                <a
+                  href={hoveredEvent.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded-lg text-blue-400 text-xs font-medium transition-colors"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  Read Full Article
+                </a>
+              ) : (
+                <a
+                  href={getWikipediaUrl(hoveredEvent.title, hoveredEvent.year)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded-lg text-blue-400 text-xs font-medium transition-colors"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  View on Wikipedia
+                </a>
+              )}
 
               {/* Find More Button */}
               {apiKey && (
@@ -508,7 +591,7 @@ export default function Map({
                   ) : (
                     <>
                       <Search className="w-3 h-3" />
-                      Find Similar Events
+                      {hoveredEvent.source ? "Find Related News" : "Find Similar Events"}
                     </>
                   )}
                 </button>

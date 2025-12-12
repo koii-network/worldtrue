@@ -10,7 +10,14 @@ interface MapEvent {
   lat: number;
   lng: number;
   year: number;
-  type: "conflict" | "discovery" | "cultural" | "political" | "technological";
+  type: "conflict" | "discovery" | "cultural" | "political" | "technological" | "news" | "breaking" | "world" | "business" | "tech" | "sports";
+  // News-specific fields
+  source?: string;
+  sourceUrl?: string;
+  imageUrl?: string;
+  timestamp?: string;
+  country?: string;
+  sentiment?: "positive" | "negative" | "neutral";
 }
 
 interface SuggestedEvent {
@@ -31,6 +38,7 @@ interface EventListPopoverProps {
   onClose: () => void;
   events: MapEvent[];
   onEventHover: (eventId: string | null) => void;
+  onEventClick?: (event: MapEvent) => void;
   apiKey?: string;
   onEventsCreated?: () => void;
   pendingEvents?: SuggestedEventWithSource[];
@@ -39,11 +47,19 @@ interface EventListPopoverProps {
 }
 
 const typeColors: Record<string, string> = {
+  // Historical event types
   conflict: "#ef4444",
   discovery: "#3b82f6",
   cultural: "#a855f7",
   political: "#f59e0b",
   technological: "#10b981",
+  // News types
+  news: "#6366f1",
+  breaking: "#dc2626",
+  world: "#0ea5e9",
+  business: "#84cc16",
+  tech: "#06b6d4",
+  sports: "#f97316",
 };
 
 export default function EventListPopover({
@@ -51,6 +67,7 @@ export default function EventListPopover({
   onClose,
   events,
   onEventHover,
+  onEventClick,
   apiKey,
   onEventsCreated,
   pendingEvents = [],
@@ -288,6 +305,7 @@ export default function EventListPopover({
                 className="px-4 py-3 border-b border-gray-800/50 hover:bg-gray-800/50 cursor-pointer transition-colors"
                 onMouseEnter={() => onEventHover(event.id)}
                 onMouseLeave={() => onEventHover(null)}
+                onClick={() => onEventClick?.(event)}
               >
                 <div className="flex items-start gap-3">
                   {/* Type indicator */}

@@ -324,6 +324,26 @@ export const sessions = pgTable('sessions', {
   };
 });
 
+// Event Comments table (direct comments on events)
+export const eventComments = pgTable('event_comments', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  eventId: uuid('event_id').notNull(),
+  parentId: uuid('parent_id'), // For nested replies
+  content: text('content').notNull(),
+  authorName: text('author_name').notNull().default('Anonymous'),
+  authorId: text('author_id'), // Optional - for logged-in users
+  isEdited: boolean('is_edited').notNull().default(false),
+  editedAt: timestamp('edited_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => {
+  return {
+    eventIdIdx: index('event_comments_event_id_idx').on(table.eventId),
+    parentIdIdx: index('event_comments_parent_id_idx').on(table.parentId),
+    authorIdIdx: index('event_comments_author_id_idx').on(table.authorId),
+  };
+});
+
 // Notifications table
 export const notifications = pgTable('notifications', {
   id: uuid('id').defaultRandom().primaryKey(),
